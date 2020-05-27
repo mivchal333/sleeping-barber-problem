@@ -1,0 +1,35 @@
+DOKUMENTACJA PROJEKTOWA
+
+Systemy Operacyjne 
+PS4
+Projekt 2
+Temat projektu: Problem śpiącego fryzjera
+
+Projekt zrealizowali:
+1. Sujeta Adam
+2. Wawiórka Daniel
+
+Zostały wykonane obie wersje programu, a więc:
+- bez wykorzystania zmiennych warunkowych (tylko mutexy/semafory)
+- wykorzystując zmienne warunkowe (condition variables)
+
+Czytanie informacji z terminalu:
+
+Res:5 WRomm: 6/20 [in: 7]
+
+Res - liczba osób, które nie dostały się do poczekalni (poczekalnia była pełna)
+WRomm - liczba osób znajdujących się w poczekalni na liczbę dostępnych miejsc w poczekalni
+in - numer klienta, który w danej chwili obłsługiwany jest przez fryzjera
+Nazwy programów:
+./fryzjer_sem 
+./fryzjer_war
+Sposób uruchomienia:
+./fryzjer_sem --klient 20 --krzesla 40 --czas_k 5 --czas_f 2 --debug
+Analogicznie w przypadku ./fryzjer_war
+Wszystkie parametry są opcjonalne. Gdy użytkownik nie poda wartości, wczytane zostaną domyślne.
+Oznaczenia:
+--klient - liczba klientów (wątków klienta), którzy będą chcieli przyjść do fryzjera
+--krzesla - liczba dostępnych miejsc w poczekalni
+--czas_k - losowy czas, w którym pojawi się klient (zakres od 1 sek do wartości podanej przez argument)
+--czas_f - losowy czas, w którym swoją pracę wykonywać będzie fryzjer (zakres od 1 sek do wartości podanej przez argument
+--debug - opcja umożliwiająca na wypisywanie na standardowe wyjście dodatkowo listy klientów czekających w poczekalni i listy klientów, którzy nie dostali się do fryzjera z powodu braku miejsc w poczekalni
