@@ -9,6 +9,7 @@
 
 struct Node {
     int client_id;
+    int client_time;
     struct Node *next;
 };
 
@@ -28,13 +29,13 @@ int debug = 0;       // opcja pozwalajaca na wypisanie list
 int skonczone = 0; // zmienna pozwalajaca na sprawdzenie czy fryzjer skonczyl prace
 
 
+struct Node *klenci = NULL;
 struct Node *odrzuceni = NULL;
 struct Node *czekajacy = NULL;
 
 
 int akt_klient = -1; // zmienna przechowujaca aktualnego klienta na fotelu; -1 gdy nie ma klienta
 
-void Umiesc_czekajacy(int x);
 
 void *Fryzjer();
 
@@ -48,36 +49,28 @@ void czekaj(int sec) {
     usleep(x);
 }
 
-void *Klient(void *nr_klienta);
-
-void Umiesc_odrzuceni(int clientId);
-
-/* Given a reference (pointer to pointer) to the head
-of a list and an int, appends a new node at the end */
-void append(struct Node **head_ref, int new_data) {
-    /* 1. allocate node */
+void push(struct Node **head_ref, int clientId, int clientTime) {
     struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
+    new_node->client_id = clientId;
+    new_node->client_time = clientTime;
+    new_node->next = (*head_ref);
+    (*head_ref) = new_node;
+}
 
+
+void append(struct Node **head_ref, int clientId, int clientTime) {
+    if (debug == 1) printf("Adding client id: %d time: %d", clientId, clientTime);
+    struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
     struct Node *last = *head_ref; /* used in step 5*/
-
-    /* 2. put in the data */
-    new_node->client_id = new_data;
-
-    /* 3. This new node is going to be the last node, so make next
-        of it as NULL*/
+    new_node->client_id = clientId;
+    new_node->client_time = clientId;
     new_node->next = NULL;
-
-    /* 4. If the Linked List is empty, then make the new node as head */
     if (*head_ref == NULL) {
         *head_ref = new_node;
         return;
     }
-
-    /* 5. Else traverse till the last node */
     while (last->next != NULL)
         last = last->next;
-
-    /* 6. Change the next of last node */
     last->next = new_node;
 }
 
@@ -88,49 +81,48 @@ void printList(struct Node *node) {
     }
 }
 
-void Umiesc_czekajacy(int clientId) {
-    append(&czekajacy, clientId);
+void Umiesc_czekajacy(int clientId, int clientTime) {
+    append(&czekajacy, clientId, clientTime);
     Wypisz_czekajacy();
 }
 
 void deleteNode(struct Node **head_ref, int key) {
-    // Store head node
     struct Node *temp = *head_ref, *prev;
-
-    // If head node itself holds the key to be deleted
     if (temp != NULL && temp->client_id == key) {
         *head_ref = temp->next;   // Changed head
         free(temp);               // free old head
         return;
     }
-
-    // Search for the key to be deleted, keep track of the
-    // previous node as we need to change 'prev->next'
     while (temp != NULL && temp->client_id != key) {
         prev = temp;
         temp = temp->next;
     }
-
-    // If key was not present in linked list
     if (temp == NULL) return;
-
-    // Unlink the node from linked list
     prev->next = temp->next;
-
-    free(temp);  // Free memory
+    free(temp);
     Wypisz_czekajacy();
 }
 
-void *Klient(void *nr_klienta) {
-    czekaj(czas_klienta);
-    int nr = *(int *) nr_klienta;
+void Umiesc_odrzuceni(int clientId, int clientTime) {
+    append(&odrzuceni, clientId, clientTime);
+    printf("Rejected: \n");
+    printList(odrzuceni);
+    printf("\n");
+}
+
+void *Klient(void *client) {
+    struct Node *myClient = (struct Node *) client;
+
+    int nr = (*myClient).client_id;
+    int czas = (*myClient).client_time;
+    czekaj(czas);
     pthread_mutex_lock(&poczekalnia);  // blokujemy poczekalnie
     if (liczbaMiejsc > 0) {
         liczbaMiejsc--;
         printf("Res:%d WRomm: %d/%d [in: %d]  -  zajeto miejsce w poczekalni\n", nie_weszli,
                liczbaKrzesel - liczbaMiejsc, liczbaKrzesel, akt_klient);
         if (debug == 1) {
-            Umiesc_czekajacy(nr);
+            Umiesc_czekajacy(nr, czas);
         }
         sem_post(&klienci); // dajemy sygnal dla fryzjera ze klient jest w poczekalni
         pthread_mutex_unlock(&poczekalnia); // odblokowanie poczekalni
@@ -148,14 +140,14 @@ void *Klient(void *nr_klienta) {
         printf("Res:%d WRomm: %d/%d [in: %d]  -  klient nie wszedl\n", nie_weszli, liczbaKrzesel - liczbaMiejsc,
                liczbaKrzesel, akt_klient);
         if (debug == 1) {
-            Umiesc_odrzuceni(nr);
+            Umiesc_odrzuceni(nr, czas);
         }
     }
     return NULL;
 }
 
 void Wypisz_czekajacy() {
-    printf("Waiting: ");
+    printf("\nWaiting: ");
     printList(czekajacy);
     printf("\n");
 }
@@ -177,16 +169,10 @@ void *Fryzjer() {
         // odblokowanie mutexa
         pthread_mutex_unlock(&fotel);
     }
-    printf("Barber: End of Work\n");
+    if (debug == 1) printf("Barber: End of Work\n");
     return NULL;
 }
 
-void Umiesc_odrzuceni(int clientId) {
-    append(&odrzuceni, clientId);
-    printf("Rejected: \n");
-    printList(odrzuceni);
-    printf("\n");
-}
 
 int main(int argc, char *argv[]) {
     // inicjalizacja
@@ -217,11 +203,16 @@ int main(int argc, char *argv[]) {
 
     pthread_t *klienci_watki = malloc(sizeof(pthread_t) * liczbaKlientow);
     pthread_t fryzjer_watek;
-    int *tablica = malloc(sizeof(int) * liczbaKlientow);
 
     int i;
+    if (debug == 1) printf("\nLiczba klientow: %d", liczbaKlientow);
     for (i = 0; i < liczbaKlientow; i++) {
-        tablica[i] = i;
+        // losujemy czas jaki spedzi fryzjer na strzyzeniu
+        int randomTime = rand() % czas_klienta + 1;
+        // dodajemy klienta do listy
+        push(&klenci, i, randomTime);
+        // watek dla klienta
+        pthread_create(&klienci_watki[i], NULL, Klient, (void *) klenci);
     }
 
     sem_init(&klienci, 0, 0);
@@ -233,21 +224,13 @@ int main(int argc, char *argv[]) {
     // tworzymy wątek fryzjera. wskaźnik do wątku, parametry wątku, wskaźnik do funkcji wykonywanej przez wątek, argumenty do funkcji wykonywanej
     pthread_create(&fryzjer_watek, NULL, Fryzjer, NULL);
 
-    // iteracyjnie tworzymy wątki klientów
-    for (i = 0; i < liczbaKlientow; i++) {
-        printf("\n Tworzymy klienta nr: %d", i);
-
-        // tworzymy wątek klienta
-        pthread_create(&klienci_watki[i], NULL, Klient, (void *) &tablica[i]);
-    }
     // czekamy na kazdego klienta
     for (i = 0; i < liczbaKlientow; i++) {
         // dodajemy watki klinetow do listy oczekiwanych
-        printf("\n Dodajemy klienta nr: %d", i);
+        if (debug == 1) printf("\n Dodajemy klienta nr: %d", i);
         pthread_join(klienci_watki[i], NULL);
     }
     skonczone = 1;
-    //sem_post(&klienci);
     pthread_join(fryzjer_watek, NULL);
 
     pthread_mutex_destroy(&fotel);
@@ -256,5 +239,6 @@ int main(int argc, char *argv[]) {
     sem_destroy(&fryzjer);
     free(czekajacy);
     free(odrzuceni);
+    free(klenci);
     return 0;
 }
