@@ -7,4 +7,4 @@ add_executable(sleeping_barber_problem
     condition_variables/main.c
     condition_variables/Makefile
     mutex_semafor/main.c
-    mutex_semafor/Makefile)
+    mutex_semafor/Makefile functions.h functions.c)

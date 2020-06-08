@@ -3,8 +3,8 @@
 #include <semaphore.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <stdbool.h>
 #include <getopt.h>
+#include "../functions.h"
 #include <time.h>
 
 struct Node{
@@ -16,15 +16,16 @@ struct Node{
 sem_t klienci; // to jest liczba klientow gotowych do strzyzenia; 0 gdy nie ma nikogo w poczekalni
 sem_t fryzjer; // to jest znacznik czy fryzjer jest zajetty czy nie; 0 gdy scina kogos, 1 gdy nie
 pthread_mutex_t fotel; // blokuje fotel gdy siada na niego klient a zwalnia go fryzjer gdy skonczy
-
 pthread_mutex_t poczekalnia; //blokuje poczekalnie tak aby zapobiedz wyscigowi sprawdzania ilosci osob w poczekalni
+
 int liczbaMiejsc = 10;  // liczba wolnych miejsc
 int liczbaKrzesel = 10;   //dostepana liczba miejsc w poczekalni
 int nie_weszli = 0;   // liczba osob, ktora nie znalazla miejsc w poczekalni
 int czas_fryzjera = 2;    // tempo w jakim fryzjer scina klienta od 1 sec do czas_fryzjera
 int czas_klienta = 8;     // czas w jakim klient przychodzi do salonu od rozpoczecia programu od 1 do czas_klienta
-bool debug = false;       // opcja pozwalajaca na wypisanie list
-bool skonczone = false; // zmienna pozwalajaca na sprawdzenie czy fryzjer skonczyl prace
+
+int debug = 0;       // opcja pozwalajaca na wypisanie list
+int skonczone = 0; // zmienna pozwalajaca na sprawdzenie czy fryzjer skonczyl prace
 
 
 struct Node* odrzuceni = NULL;
@@ -133,7 +134,7 @@ void *Klient(void *nr_klienta) {
         liczbaMiejsc--;
         printf("Res:%d WRomm: %d/%d [in: %d]  -  zajeto miejsce w poczekalni\n", nie_weszli,
                liczbaKrzesel - liczbaMiejsc, liczbaKrzesel, akt_klient);
-        if (debug == true) {
+        if (debug == 1) {
             Umiesc_czekajacy(nr);
         }
         sem_post(&klienci); // dajemy sygnal dla fryzjera ze klient jest w poczekalni
@@ -143,7 +144,7 @@ void *Klient(void *nr_klienta) {
         akt_klient = nr;  // ustalamy numer aktualnego klienta na fotelu
         printf("Res:%d WRomm: %d/%d [in: %d]  -  zaczeto scinac\n", nie_weszli, liczbaKrzesel - liczbaMiejsc,
                liczbaKrzesel, akt_klient);
-        if (debug == true) {
+        if (debug == 1) {
             deleteNode(&czekajacy, nr);
         }
     } else {
@@ -151,7 +152,7 @@ void *Klient(void *nr_klienta) {
         nie_weszli++;
         printf("Res:%d WRomm: %d/%d [in: %d]  -  klient nie wszedl\n", nie_weszli, liczbaKrzesel - liczbaMiejsc,
                liczbaKrzesel, akt_klient);
-        if (debug == true) {
+        if (debug == 1) {
             Umiesc_odrzuceni(nr);
         }
     }
@@ -159,13 +160,14 @@ void *Klient(void *nr_klienta) {
 }
 
 void Wypisz_czekajacy() {
-    printf("Czekaja : ");
+    printf("Waiting: ");
     printList(czekajacy);
+    printf("\n");
 }
 
 void *Fryzjer() {
-    while (!skonczone) {
-        if (!skonczone) {
+    while (skonczone != 1) {
+        if (skonczone != 1) {
             sem_wait(&klienci); // fryzjer spi, czyli czaka az pojawi sie jakis klient i go obudzi
             pthread_mutex_lock(&poczekalnia);
             liczbaMiejsc++;
@@ -177,33 +179,24 @@ void *Fryzjer() {
             pthread_mutex_unlock(&fotel); // zwalniamy miejsce na fotelu dla nastepnego klienta
         }
     }
-    printf("fryzjer idzie do domu\n");
+    printf("End of Work\n");
     return NULL;
 }
 
 void Umiesc_odrzuceni(int clientId) {
     append(&odrzuceni, clientId);
-    printf("Odrzuceni: \n");
+    printf("Rejected: \n");
     printList(odrzuceni);
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
     // inicjalizacja
     srand(time(NULL));
 
-
-    static struct option parametry[] =
-            {
-                    {"klient",  required_argument, NULL, 'k'},
-                    {"krzesla", required_argument, NULL, 'r'},
-                    {"czas_k",  required_argument, NULL, 'c'},
-                    {"czas_f",  required_argument, NULL, 'f'},
-                    {"debug",   no_argument,       NULL, 'd'}
-
-            };
     int liczbaKlientow = 5;
     int wybor;
-    while ((wybor = getopt_long(argc, argv, "k:r:c:f:d", parametry, NULL)) != -1) {
+    while ((wybor = getopt(argc, argv, "k:r:c:f:d")) != -1 ){
         switch (wybor) {
             case 'k': //max liczba klientow
                 liczbaKlientow = atoi(optarg);
@@ -219,7 +212,7 @@ int main(int argc, char *argv[]) {
                 czas_fryzjera = atoi(optarg);
                 break;
             case 'd':
-                debug = true;
+                debug = 1;
                 break;
         }
     }
@@ -247,7 +240,7 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < liczbaKlientow; i++) {
         pthread_join(klienci_watki[i], NULL);
     }
-    skonczone = true;
+    skonczone = 1;
     //sem_post(&klienci);
     pthread_join(fryzjer_watek, NULL);
 

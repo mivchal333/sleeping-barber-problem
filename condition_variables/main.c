@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <getopt.h>
+#include "../functions.h"
 #include <unistd.h>
 
 struct Lista
@@ -205,18 +206,10 @@ void *Fryzjer()
 int main(int argc, char *argv[])
 {
     srand(time(NULL));
-    static struct option parametry[] =
-    {
-        {"klient", required_argument, NULL, 'k'},
-        {"krzesla", required_argument, NULL, 'r'},
-        {"czas_k", required_argument, NULL, 'c'},
-        {"czas_f", required_argument, NULL, 'f'},
-        {"debug", no_argument, NULL, 'd'}
 
-    };
     int liczbaKlientow =20; //liczba klientow ktorzy sie pojawia
     int wybor = 0;
-    while((wybor = getopt_long(argc, argv, "k:r:c:f:d",parametry,NULL)) != -1)
+    while ((wybor = getopt(argc, argv, "k:r:c:f:d")) != -1 )
     {
         switch(wybor)
         {
