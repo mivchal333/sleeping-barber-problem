@@ -1,9 +1,9 @@
 OBJ = main.o ../functions.o
 
-all: fryzjer_war
+all: mutex
 
-fryzjer_war: $(OBJ)
-	gcc $(OBJ) -o fryzjer_war -pthread
+mutex: $(OBJ)
+	gcc $(OBJ) -o mutex -pthread
 
 $(OBJ): ../functions.h
 

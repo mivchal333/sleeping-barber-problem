@@ -1,9 +1,9 @@
 OBJ = main.o ../functions.o
 
-all: fryzjer_sem
+all: con_var
 
-fryzjer_sem: $(OBJ)
-	gcc $(OBJ) -o fryzjer_sem -pthread
+con_var: $(OBJ)
+	gcc $(OBJ) -o con_var -pthread
 
 $(OBJ): ../functions.h
 
