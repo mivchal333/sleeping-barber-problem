@@ -97,6 +97,7 @@ void *ClientThread(void *client) {
         pthread_mutex_unlock(&waitingRoom); //odblokuj poczekalnie
     }
 
+    return NULL;
 }
 
 void *BarberThread() {
@@ -109,11 +110,14 @@ void *BarberThread() {
         if (!isEnd) // //jesli jest klient
         {
             doBarberWork();  // scinamy klienta
+            printf("Res:%d WRomm: %d/%d [in: %d] - It has new haircut!\n", rejectedClientsCounter,
+                   seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
             pthread_cond_signal(&shearEndCond); //koniec
-        } else //jesli nie, to idz do domu...
-            printf("Nikogo juz nie ma, nikt nie przyjdzie, pora na mnie...\n");
+        } else {//jesli nie, to idz do domu...
+            if (isDebug == 1) printf("Barber finished work!\n");
+        }
     }
-
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
@@ -220,6 +224,5 @@ int main(int argc, char *argv[]) {
     pthread_cond_destroy(&isBarberAvailableCond);
     pthread_cond_destroy(&wakeupBarberCond);
     pthread_cond_destroy(&shearEndCond);
-
     return 0;
 }
