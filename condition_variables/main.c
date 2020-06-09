@@ -19,21 +19,29 @@ pthread_mutex_t stan_fryzjera; //chroni stan pracy/spania fryzjera
 bool czy_fotel_zajety = false; //czy ktos siedzi na fotelu
 bool czy_fryzjer_spi; //czy fryzjer ucina sobie drzemke w oczekiwaniu na klienta
 
-int liczbaMiejsc=10;  // liczba wolnych miejsc
-int liczbaKrzesel=10;   //dostepana liczba miejsc w poczekalni
-int nie_weszli=0;   // liczba osob, ktora nie znalazla miejsc w poczekalni
-int czas_fryzjera=1;    // tempo w jakim fryzjer scina klienta od 1 sec do czas_fryzjera
-int czas_klienta=10;     // czas w jakim klient przychodzi do salonu od rozpoczecia programu od 1 do czas_klienta
-bool debug=false;       // opcja pozwalajaca na wypisanie list
-int akt_klient=-1; // zmienna przechowujaca aktualnego klienta na fotelu; -1 gdy nie ma klienta
+//Liczba wolnych miejsc w poczekalni
+int freeSeatsAmount = 10;
+//Domyslna liczba miejsc w poczekalni
+int seatsAmount = 10;
+//Liczba osób które zrezygnowały
+int rejectedClientsCounter = 0;
+//Domyślny maksymalny czas strzyżenia
+int maxShearTime = 2;
+//Domyślny maksymalny czas przychodzenia klientów
+int maxClientArriveTime = 8;
+//Informacja o wolnym fotelu (-1 wskazuje na pusty fotel)
+int clientOnSeatId = -1;
+
+int isDebug = 0;
+int isEnd = 0;
 
 struct Node *clients = NULL;
-struct Node *odrzuceni = NULL; //lista tych, ktorzy sie nie dostali do poczekalni
-struct Node *czekajacy = NULL; //lista/kolejka osob czekajacych w poczekalni
+struct Node *rejectedClients = NULL; //lista tych, ktorzy sie nie dostali do poczekalni
+struct Node *waitingClients = NULL; //lista/kolejka osob czekajacych w poczekalni
 
 void Wypisz_odrzuceni()
 {
-    struct Node *temp = odrzuceni;
+    struct Node *temp = rejectedClients;
     printf("Nie weszli: ");
     while(temp!=NULL)
     {
@@ -44,7 +52,7 @@ void Wypisz_odrzuceni()
 }
 void Wypisz_czekajacy()
 {
-    struct Node *temp = czekajacy;
+    struct Node *temp = waitingClients;
     printf("Czekaja : ");
     while(temp!=NULL)
     {
@@ -57,22 +65,22 @@ void Umiesc_odrzuceni(int x)
 {
     struct Node *temp = (struct Node*)malloc(sizeof(struct Node));
     temp->id = x;
-    temp->next = odrzuceni;
-    odrzuceni = temp;
+    temp->next = rejectedClients;
+    rejectedClients = temp;
     Wypisz_odrzuceni();
 }
 void Umiesc_czekajacy(int x)
 {
     struct Node *temp = (struct Node*)malloc(sizeof(struct Node));
     temp->id = x;
-    temp->next = czekajacy;
-    czekajacy = temp;
+    temp->next = waitingClients;
+    waitingClients = temp;
 
     Wypisz_czekajacy();
 }
 int pierwszy_kolejce()
 {
-    struct Node *temp = czekajacy;
+    struct Node *temp = waitingClients;
     while(temp->next!=NULL)
     {
         temp=temp->next;
@@ -81,7 +89,7 @@ int pierwszy_kolejce()
 }
 void usun_ostatni()
 {
-    struct Node *temp = czekajacy;
+    struct Node *temp = waitingClients;
     while(temp->next->next!=NULL)
     {
         temp=temp->next;
@@ -91,15 +99,15 @@ void usun_ostatni()
 }
 void usun_klienta(int x)
 {
-    struct Node *temp = czekajacy;
-    struct Node *pop = czekajacy;
+    struct Node *temp = waitingClients;
+    struct Node *pop = waitingClients;
     while (temp!=NULL)
     {
         if(temp->id==x)
         {
-            if(temp->id==czekajacy->id)
+            if(temp->id == waitingClients->id)
             {
-                czekajacy=czekajacy->next;
+                waitingClients=waitingClients->next;
                 free(temp);
             }
             else
@@ -116,7 +124,7 @@ void usun_klienta(int x)
 
 }
 
-void *Klient(void *client)
+void *ClientThread(void *client)
 {
     struct Node *actualClient = (struct Node *) client;
     int clientId = (*actualClient).id;
@@ -126,11 +134,11 @@ void *Klient(void *client)
     travelToBarbershop(clientTime);
 
     pthread_mutex_lock(&poczekalnia); // blokujemy poczekalnie
-    if(liczbaMiejsc>0) //jesli sa wolne miejsca, wejdz
+    if(freeSeatsAmount > 0) //jesli sa wolne miejsca, wejdz
     {
-        liczbaMiejsc--;
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  nowy klient w poczekalni\n",nie_weszli, liczbaKrzesel-liczbaMiejsc, liczbaKrzesel, akt_klient);
-        if(debug==true) Umiesc_czekajacy(clientId); //umiesc klienta w kolejnce poczekalni
+        freeSeatsAmount--;
+        printf("Res:%d WRomm: %d/%d [in: %d]  -  nowy klient w poczekalni\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
+        if(isDebug == true) Umiesc_czekajacy(clientId); //umiesc klienta w kolejnce poczekalni
         pthread_mutex_unlock(&poczekalnia); //odbezpieczamy poczekalnie
 
         //czekamy az fotel sie zwolni
@@ -142,11 +150,11 @@ void *Klient(void *client)
 
         //klient wychodzi z poczekalni i idzie do fryzjera
         pthread_mutex_lock(&poczekalnia);
-        liczbaMiejsc++;
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient poszedl do fryzjera\n",nie_weszli, liczbaKrzesel-liczbaMiejsc, liczbaKrzesel, akt_klient);
-        akt_klient=clientId;
-        if(debug==true) usun_klienta(clientId); //usuwamy klienta z kolejki
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient jest scinany\n",nie_weszli, liczbaKrzesel-liczbaMiejsc, liczbaKrzesel, akt_klient);
+        freeSeatsAmount++;
+        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient poszedl do fryzjera\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
+        clientOnSeatId=clientId;
+        if(isDebug == true) usun_klienta(clientId); //usuwamy klienta z kolejki
+        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient jest scinany\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
         pthread_mutex_unlock(&poczekalnia);
         //pthread_cond_signal(&wolne_miejsca); //wysylamy sygnal ze jest wolne miejsce
 
@@ -168,9 +176,9 @@ void *Klient(void *client)
     }
     else
     {
-        nie_weszli++; //zwiekszamy licznik osob ktore sie nie dostaly
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient nie wszedl\n",nie_weszli, liczbaKrzesel-liczbaMiejsc, liczbaKrzesel, akt_klient);
-        if(debug==true) Umiesc_odrzuceni(clientId); //umieszczamy na liste osob ktore sie nie dostaly
+        rejectedClientsCounter++; //zwiekszamy licznik osob ktore sie nie dostaly
+        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient nie wszedl\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
+        if(isDebug == true) Umiesc_odrzuceni(clientId); //umieszczamy na liste osob ktore sie nie dostaly
         pthread_mutex_unlock(&poczekalnia); //odblokuj poczekalnie
     }
 
@@ -222,18 +230,18 @@ int main(int argc, char *argv[])
             kFlag = 1;
             break;
         case 'r': // liczba krzesel w poczekalni
-            liczbaMiejsc=atoi(optarg);
-            liczbaKrzesel=atoi(optarg);
+            freeSeatsAmount=atoi(optarg);
+                seatsAmount=atoi(optarg);
             rFlag = 1;
             break;
         case 'c': // co ile czasu maja pojawiac sie klienci w salonie
-            czas_klienta=atoi(optarg);
+            maxClientArriveTime=atoi(optarg);
             break;
         case 'f':  // jak szybko ma scinac fryzjer
-            czas_fryzjera=atoi(optarg);
+            maxShearTime=atoi(optarg);
             break;
         case 'd':
-            debug=true;
+            isDebug=true;
             break;
         }
     }
@@ -300,8 +308,8 @@ int main(int argc, char *argv[])
     pthread_mutex_destroy(&koniec_klient);
     pthread_mutex_destroy(&stan_fryzjera);
 
-    free(czekajacy);
-    free(odrzuceni);
+    free(waitingClients);
+    free(rejectedClients);
     free(clients);
     return 0;
 }
