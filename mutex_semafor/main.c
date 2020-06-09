@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <getopt.h>
-#include "../functions.h"
+//#include "../functions.h"
 #include <time.h>
 
 struct Node {
@@ -13,11 +13,11 @@ struct Node {
     struct Node *next;
 };
 
-
 sem_t clientsSem; // to jest liczba klientow gotowych do strzyzenia; 0 gdy nie ma nikogo w poczekalni
 sem_t barberSem; // to jest znacznik czy fryzjer jest zajetty czy nie; 0 gdy scina kogos, 1 gdy nie
 pthread_mutex_t barberSeat; // blokuje fotel gdy siada na niego klient a zwalnia go fryzjer gdy skonczy
 pthread_mutex_t waitingRoom; //blokuje poczekalnie tak aby zapobiedz wyscigowi sprawdzania ilosci osob w poczekalni
+
 
 int freeSeatsAmount = 10;
 int seatsAmount = 10;
@@ -27,11 +27,9 @@ int maxClientArriveTime = 8;
 int isDebug = 0;
 int isEnd = 0;
 
-
 struct Node *clients = NULL;
 struct Node *rejectedClients = NULL;
 struct Node *waitingClients = NULL;
-
 
 // if minus value seat is empty
 int clientOnSeatId = -1;
@@ -60,9 +58,10 @@ void push(struct Node **head_ref, int clientId, int clientTime) {
 
 
 void append(struct Node **head_ref, int clientId, int clientTime) {
-    if (isDebug == 1) printf("Adding client id: %d time: %d\n", clientId, clientTime);
+    if (isDebug == 1)
+        printf("Adding client id: %d time: %d\n", clientId, clientTime);
     struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
-    struct Node *last = *head_ref; /* used in step 5*/
+    struct Node *last = *head_ref;  /*used in step 5*/
     new_node->id = clientId;
     new_node->time = clientId;
     new_node->next = NULL;
@@ -111,6 +110,7 @@ void addToRejectedList(int clientId, int clientTime) {
     printf("\n");
 }
 
+
 void *ClientThread(void *client) {
     struct Node *actualClient = (struct Node *) client;
     int clientId = (*actualClient).id;
@@ -119,22 +119,21 @@ void *ClientThread(void *client) {
     travelToBarbershop(clientTime);
 
     pthread_mutex_lock(&waitingRoom);  // blokujemy poczekalnie
-    int takenSeatsAmount = seatsAmount - freeSeatsAmount;
     if (freeSeatsAmount > 0) {
         freeSeatsAmount--;
-        printf("Res:%d WRomm: %d/%d [in: %d]  In waiting room\n", rejectedClientsCounter,
-               takenSeatsAmount, seatsAmount, clientOnSeatId);
-
-        if (isDebug == 1) addToWaitingList(clientId, clientTime);
+        if (isDebug == 1)
+            addToWaitingList(clientId, clientTime);
+        printf("Res:%d WRomm: %d/%d [in: %d] - %d sat in the waiting room\n", rejectedClientsCounter,
+               seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId, clientId);
 
         sem_post(&clientsSem); // dajemy sygnal dla fryzjera ze klient jest w poczekalni
         pthread_mutex_unlock(&waitingRoom); // odblokowanie poczekalni
         sem_wait(&barberSem);// czekamy az fryzjer bedzie gotowy(skonczy scinac kogos innego)
         pthread_mutex_lock(&barberSeat);  // siadamy na fotelu czyli blokujemy fotel
-        printf("Res:%d WRomm: %d/%d [in: %d]  Client accepted to shear\n", rejectedClientsCounter, takenSeatsAmount,
+        clientOnSeatId = clientId;
+        printf("Res:%d WRomm: %d/%d [in: %d]  Client accepted to shear\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
         // klient wchodzi na fotel
-        clientOnSeatId = clientId;
         if (isDebug == 1) deleteNode(&waitingClients, clientId);
 
     } else {
@@ -143,7 +142,7 @@ void *ClientThread(void *client) {
         pthread_mutex_unlock(&waitingRoom);
         // zwiększamy licznik odrzucen
         rejectedClientsCounter++;
-        printf("Res:%d WRomm: %d/%d [in: %d]  Rejected\n", rejectedClientsCounter, takenSeatsAmount,
+        printf("Res:%d WRomm: %d/%d [in: %d]  Rejected\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
         if (isDebug == 1) addToRejectedList(clientId, clientTime);
 
@@ -181,6 +180,7 @@ void *BarberThred() {
 }
 
 
+
 int main(int argc, char *argv[]) {
     // inicjalizacja
     srand(time(NULL));
@@ -213,6 +213,7 @@ int main(int argc, char *argv[]) {
 
     int i;
     if (isDebug == 1) printf("Liczba klientow: %d\n", clientCount);
+
     for (i = 0; i < clientCount; i++) {
         // losujemy czas po jakim klient przyjdzie do salonu
         int randomTime = rand() % maxClientArriveTime + 1;
@@ -234,7 +235,7 @@ int main(int argc, char *argv[]) {
     // czekamy na kazdego klienta
     for (i = 0; i < clientCount; i++) {
         // dodajemy watki klinetow do listy oczekiwanych
-        if (isDebug == 1) printf("Dodajemy klienta nr: %d\n", i);
+        //if (isDebug == 1) printf("Dodajemy klienta nr: %d\n", i+1);
         pthread_join(clientThreads[i], NULL);
     }
     isEnd = 1;
