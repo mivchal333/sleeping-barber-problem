@@ -17,7 +17,7 @@ Res:2 WRomm: 5/10 [in: 4]
 
 Oznacza to, że dwóch klientów zrezygnowało z powodu braku miejsc (Res), w poczekalni (WRoom) zajętych jest 5 z 10 krzeseł, a w gabinecie obsługiwany jest
 klient o numerze 4. Po uruchomieniu programu z parametrem -debug należy wypisywać cała kolejka klientów czekających, a także lista klientów, którzy nie
- dostali się do gabinetu. Komunikat należy wypisywać w momencie zmiany którejkolwiek z tych wartości.
+dostali się do gabinetu. Komunikat należy wypisywać w momencie zmiany którejkolwiek z tych wartości.
 Uwagi dot. sprawozdania:
 
 Rozwiązania wykorzystujące zmienne warunkowe muszą posiadać kolejkę FIFO dla czekających wątków.

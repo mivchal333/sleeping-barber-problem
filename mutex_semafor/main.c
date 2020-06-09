@@ -7,51 +7,53 @@
 
 // to jest liczba klientow gotowych do strzyzenia; 0 gdy nie ma nikogo w poczekalni
 sem_t clientsSem;
-// to jest znacznik czy fryzjer jest zajetty czy nie; 0 gdy scina kogos, 1 gdy nie
+// Znacznik wskazujący zajętość fryzjera
 sem_t barberSem;
-// blokuje fotel gdy siada na niego klient a zwalnia go fryzjer gdy skonczy
+// Blokuje fotel barbera w momencie gdy fryzjez zaczyna ścinać i zwalnia gdy klient zostanie obcięty
 pthread_mutex_t barberSeat;
-//blokuje poczekalnie tak aby zapobiedz wyscigowi sprawdzania ilosci osob w poczekalni
+// Blokuje poczekalnie w celu likwidacji wyścigu
 pthread_mutex_t waitingRoom;
 
-//Liczba wolnych miejsc w poczekalni
+// Liczba wolnych miejsc w poczekalni
 int freeSeatsAmount = 10;
-//Domyslna liczba miejsc w poczekalni
+// Domyslna liczba miejsc w poczekalni
 int seatsAmount = 10;
-//Liczba osób które zrezygnowały
+// Liczba osób które zrezygnowały
 int rejectedClientsCounter = 0;
-//Domyślny maksymalny czas strzyżenia
+// Domyślny maksymalny czas strzyżenia
 int maxShearTime = 2;
-//Domyślny maksymalny czas przychodzenia klientów
+// Domyślny maksymalny czas przychodzenia klientów
 int maxClientArriveTime = 8;
-//Informacja o wolnym fotelu (-1 wskazuje na pusty fotel)
+// Informacja o wolnym fotelu (-1 wskazuje na pusty fotel)
 int clientOnSeatId = -1;
 
+// Zmiena wskazująca czy mają być wyświetlane rozszerzone komunikaty
 int isDebug = 0;
+// Zmiena informująca o tym, że fryzjer ukończył strzyżenie
 int isEnd = 0;
 
-
+// Inicjalizacja list - klientów, klientów którzy zrezygnowali, oczekujacych klientów
 struct Node *clients = NULL;
 struct Node *rejectedClients = NULL;
 struct Node *waitingClients = NULL;
 
 void *BarberThred() {
     while (isEnd != 1) {
-        // fryzjer spi, czyli czaka az pojawi sie jakis klient i go obudzi
+        // Oczekiwanie fryzjera na pojawienie się klienta
         sem_wait(&clientsSem);
-        // zablokowanie obiektu poczekalni przez wątek
+        // Blokada poczekalni
         pthread_mutex_lock(&waitingRoom);
         freeSeatsAmount++;
-        // odblokowanie obiektu poczekalni przez wątek
+        // Odblokowanie poczekalni
         pthread_mutex_unlock(&waitingRoom);
-        // operacja signal
+        // Wysłanie sygnału
         sem_post(&barberSem);
 
         doBarberWork();
 
         printf("Res:%d WRomm: %d/%d [in: %d] - It has new haircut!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
-        // odblokowanie mutexa
+        // Odblokowanie fotela przez klienta
         pthread_mutex_unlock(&barberSeat);
     }
     if (isDebug == 1) printf("Barber finished work!\n");
@@ -65,8 +67,9 @@ void *ClientThread(void *client) {
 
     travelToBarbershop(clientTime);
 
-    // blokujemy poczekalnie
+    // Blokada poczekalni
     pthread_mutex_lock(&waitingRoom);
+    // Dodanie klienta do listy oczekujących w poczekalni, jeżeli w tej znajdują się wolne miejsca
     if (freeSeatsAmount > 0) {
         freeSeatsAmount--;
         if (isDebug == 1)
@@ -75,27 +78,27 @@ void *ClientThread(void *client) {
         printf("Res:%d WRomm: %d/%d [in: %d] - Client sat in the waiting room!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
 
-        // dajemy sygnal dla fryzjera ze klient jest w poczekalni
+        // Zasygnalizowanie, że klient znajduje się w poczekalni
         sem_post(&clientsSem);
-        // odblokowanie poczekalni
+        // Odblokowanie poczekalni
         pthread_mutex_unlock(&waitingRoom);
-        // czekamy az fryzjer bedzie gotowy(skonczy scinac kogos innego)
+        // Oczekiwanie na gotowość fryzjera - zacznie pracę lub skończy ścinać inną osobę
         sem_wait(&barberSem);
-        // siadamy na fotelu czyli blokujemy fotel
+        // Blokada fotela, rozpoczęcie strzyżenia
         pthread_mutex_lock(&barberSeat);
         clientOnSeatId = clientId;
         printf("Res:%d WRomm: %d/%d [in: %d] - Barber starts cutting its hair!\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
-        // klient usuwany z miejsca z poczekalni
+        // Usunięcie klienta z miejsca w poczekalni
         if (isDebug == 1)
             deleteNode(&waitingClients, clientId);
 
     }
+    // Dodanie klienta do listy rezygnujących, z racji na brak miejsc w poczekalni
     else {
-        // jeżeli nie ma miejsca
-        // odblokowujemy poczekalnie bo zostalismy odrzuceni
+        // Odblokowanie poczekalni z racji na brak miejsca w niej
         pthread_mutex_unlock(&waitingRoom);
-        // zwiększamy licznik odrzucen
+        // Zwiększenie liczby osób, które zrezygnowały
         rejectedClientsCounter++;
         printf("Res:%d WRomm: %d/%d [in: %d] - Client rejected!\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
@@ -105,6 +108,7 @@ void *ClientThread(void *client) {
 }
 
 int main(int argc, char *argv[]) {
+    // Sprawdzenie poprawoności wywołania (Ilość parametrów)
     static char usage[] = "Usage: %s -k value -r value [-c value] [-f value] [-d]\n";
     if(argc<5){
         fprintf(stderr, "%s: too few command-line arguments\n",argv[0]);
@@ -119,38 +123,39 @@ int main(int argc, char *argv[]) {
 
     srand(time(NULL));
 
+    // Domyślna liczna klientów
     int clientCount = 5;
     int option;
     int kFlag=0;
     int rFlag=0;
     while ((option = getopt(argc, argv, "k:r:c:f:d")) != -1) {
         switch (option) {
-            //Liczba Klientów
+            // Liczba Klientów
             case 'k':
                 clientCount = atoi(optarg);
                 kFlag = 1;
                 break;
-            //Liczba miejsc w poczekalni
+            // Liczba miejsc w poczekalni
             case 'r':
                 freeSeatsAmount = atoi(optarg);
                 seatsAmount = atoi(optarg);
                 rFlag = 1;
                 break;
-            //Maksymalny czas pojawienia się klientów
+            // Maksymalny czas pojawienia się klientów
             case 'c':
                 maxClientArriveTime = atoi(optarg);
                 break;
-            //Maksymalna czas strzyżenia
+            // Maksymalna czas strzyżenia
             case 'f':
                 maxShearTime = atoi(optarg);
                 break;
-            //Parametr Debug
+            // Parametr Debug
             case 'd':
                 isDebug = 1;
                 break;
         }
     }
-
+    // Sprawdzenie wymaganych parametrów parametrów
     if(kFlag == 0){
         fprintf(stderr, "%s: missing -k option\n",argv[0]);
         fprintf(stderr, usage,argv[0]);
@@ -162,6 +167,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    // Rezerwacja miejsca na wątki klientów
     pthread_t *clientThreads = malloc(sizeof(pthread_t) * clientCount);
     pthread_t barberThread;
 
@@ -171,36 +177,39 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < clientCount; i++) {
         // Wylosowanie czasu, po jakim klient pojawi się u fryzjera
         int randomTime = rand() % maxClientArriveTime + 1;
-        // dodajemy klienta do listy
+        // Dodanie klienta do listy klientów
         push(&clients, i, randomTime);
-        // watek dla klienta, przekazujemy wskaznik na danego klienta
+        // Utworzenie wątku dla klienta, wskazanie nie klienta
         pthread_create(&clientThreads[i], NULL, ClientThread, (void *) clients);
     }
 
+    // Inicjacja obiektu, ustawienie wartości
     sem_init(&clientsSem, 0, 0);
     sem_init(&barberSem, 0, 0);
 
-    // inicjalizacja zamka dla zamka fotel
+    // Inicjalizacja zamka dla fotela fryzjera
     if (pthread_mutex_init(&barberSeat, NULL) != 0) {
         fprintf(stderr, "barebrSeat mutex init error");
         exit(1);
     }
+    // Inicjalizacja zamka dla poczekalni
     if (pthread_mutex_init(&waitingRoom, NULL) != 0) {
         fprintf(stderr, "barebrSeat mutex init error");
         exit(1);
     }
-    // tworzymy wątek fryzjera. wskaźnik do wątku, parametry wątku, wskaźnik do funkcji wykonywanej przez wątek, argumenty do funkcji wykonywanej
+    // Utworzenie wątku fryzjera
     pthread_create(&barberThread, NULL, BarberThred, NULL);
 
-    // czekamy na kazdego klienta
+    // Dodanie wątków klientów do listy oczekujących
     for (i = 0; i < clientCount; i++) {
-        // dodajemy watki klinetow do listy oczekiwanych
         pthread_join(clientThreads[i], NULL);
     }
 
     isEnd = 1;
+    // Dodanie wątku fryzjera
     pthread_join(barberThread, NULL);
 
+    // Zwonienie pamięci
     pthread_mutex_destroy(&barberSeat);
     pthread_mutex_destroy(&waitingRoom);
     sem_destroy(&clientsSem);
