@@ -125,20 +125,27 @@ void *ClientThread(void *client) {
         freeSeatsAmount--;
         if (isDebug == 1)
             addToWaitingList(clientId, clientTime);
+
         printf("Res:%d WRomm: %d/%d [in: %d] - Client sat in the waiting room!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
 
-        sem_post(&clientsSem); // dajemy sygnal dla fryzjera ze klient jest w poczekalni
-        pthread_mutex_unlock(&waitingRoom); // odblokowanie poczekalni
-        sem_wait(&barberSem);// czekamy az fryzjer bedzie gotowy(skonczy scinac kogos innego)
-        pthread_mutex_lock(&barberSeat);  // siadamy na fotelu czyli blokujemy fotel
+        // dajemy sygnal dla fryzjera ze klient jest w poczekalni
+        sem_post(&clientsSem);
+        // odblokowanie poczekalni
+        pthread_mutex_unlock(&waitingRoom);
+        // czekamy az fryzjer bedzie gotowy(skonczy scinac kogos innego)
+        sem_wait(&barberSem);
+        // siadamy na fotelu czyli blokujemy fotel
+        pthread_mutex_lock(&barberSeat);
         clientOnSeatId = clientId;
         printf("Res:%d WRomm: %d/%d [in: %d] - Barber starts cutting its hair!\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
-        // klient wchodzi na fotel
-        if (isDebug == 1) deleteNode(&waitingClients, clientId);
+        // klient usuwany z miejsca z poczekalni
+        if (isDebug == 1)
+            deleteNode(&waitingClients, clientId);
 
-    } else {
+    }
+    else {
         // jeżeli nie ma miejsca
         // odblokowujemy poczekalnie bo zostalismy odrzuceni
         pthread_mutex_unlock(&waitingRoom);
@@ -147,7 +154,6 @@ void *ClientThread(void *client) {
         printf("Res:%d WRomm: %d/%d [in: %d] - Client rejected!\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
         if (isDebug == 1) addToRejectedList(clientId, clientTime);
-
     }
     return NULL;
 }

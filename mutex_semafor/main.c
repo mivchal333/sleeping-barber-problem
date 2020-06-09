@@ -5,21 +5,31 @@
 #include <getopt.h>
 #include "../functions.h"
 
-sem_t clientsSem; // to jest liczba klientow gotowych do strzyzenia; 0 gdy nie ma nikogo w poczekalni
-sem_t barberSem; // to jest znacznik czy fryzjer jest zajetty czy nie; 0 gdy scina kogos, 1 gdy nie
-pthread_mutex_t barberSeat; // blokuje fotel gdy siada na niego klient a zwalnia go fryzjer gdy skonczy
-pthread_mutex_t waitingRoom; //blokuje poczekalnie tak aby zapobiedz wyscigowi sprawdzania ilosci osob w poczekalni
+// to jest liczba klientow gotowych do strzyzenia; 0 gdy nie ma nikogo w poczekalni
+sem_t clientsSem;
+// to jest znacznik czy fryzjer jest zajetty czy nie; 0 gdy scina kogos, 1 gdy nie
+sem_t barberSem;
+// blokuje fotel gdy siada na niego klient a zwalnia go fryzjer gdy skonczy
+pthread_mutex_t barberSeat;
+//blokuje poczekalnie tak aby zapobiedz wyscigowi sprawdzania ilosci osob w poczekalni
+pthread_mutex_t waitingRoom;
 
+//Liczba wolnych miejsc w poczekalni
 int freeSeatsAmount = 10;
+//Domyslna liczba miejsc w poczekalni
 int seatsAmount = 10;
+//Liczba osób które zrezygnowały
 int rejectedClientsCounter = 0;
+//Domyślny maksymalny czas strzyżenia
 int maxShearTime = 2;
+//Domyślny maksymalny czas przychodzenia klientów
 int maxClientArriveTime = 8;
+//Informacja o wolnym fotelu (-1 wskazuje na pusty fotel)
+int clientOnSeatId = -1;
+
 int isDebug = 0;
 int isEnd = 0;
 
-// if minus value seat is empty
-int clientOnSeatId = -1;
 
 struct Node *clients = NULL;
 struct Node *rejectedClients = NULL;
@@ -174,10 +184,14 @@ void *BarberThred() {
 */
 
 int main(int argc, char *argv[]) {
-    // inicjalizacja
     static char usage[] = "Usage: %s -k value -r value [-c value] [-f value] [-d]\n";
     if(argc<5){
         fprintf(stderr, "%s: too few command-line arguments\n",argv[0]);
+        fprintf(stderr,usage, argv[0]);
+        exit(1);
+    }
+    if(argc>10){
+        fprintf(stderr, "%s: too many command-line arguments\n",argv[0]);
         fprintf(stderr,usage, argv[0]);
         exit(1);
     }
@@ -190,26 +204,32 @@ int main(int argc, char *argv[]) {
     int rFlag=0;
     while ((option = getopt(argc, argv, "k:r:c:f:d")) != -1) {
         switch (option) {
-            case 'k': //max liczba klientow
+            //Liczba Klientów
+            case 'k':
                 clientCount = atoi(optarg);
                 kFlag = 1;
                 break;
-            case 'r': // liczba krzesel w poczekalni
+            //Liczba miejsc w poczekalni
+            case 'r':
                 freeSeatsAmount = atoi(optarg);
                 seatsAmount = atoi(optarg);
                 rFlag = 1;
                 break;
-            case 'c': // co ile czasu maja pojawiac sie klienci w salonie
+            //Maksymalny czas pojawienia się klientów
+            case 'c':
                 maxClientArriveTime = atoi(optarg);
                 break;
-            case 'f':  // jak szybko ma scinac fryzjer
+            //Maksymalna czas strzyżenia
+            case 'f':
                 maxShearTime = atoi(optarg);
                 break;
+            //Parametr Debug
             case 'd':
                 isDebug = 1;
                 break;
         }
     }
+
     if(kFlag == 0){
         fprintf(stderr, "%s: missing -k option\n",argv[0]);
         fprintf(stderr, usage,argv[0]);
@@ -228,7 +248,7 @@ int main(int argc, char *argv[]) {
     if (isDebug == 1) printf("Number of Clients: %d\n", clientCount);
 
     for (i = 0; i < clientCount; i++) {
-        // losujemy czas po jakim klient przyjdzie do salonu
+        // Wylosowanie czasu, po jakim klient pojawi się u fryzjera
         int randomTime = rand() % maxClientArriveTime + 1;
         // dodajemy klienta do listy
         push(&clients, i, randomTime);
@@ -254,9 +274,9 @@ int main(int argc, char *argv[]) {
     // czekamy na kazdego klienta
     for (i = 0; i < clientCount; i++) {
         // dodajemy watki klinetow do listy oczekiwanych
-        //if (isDebug == 1) printf("Dodajemy klienta nr: %d\n", i+1);
         pthread_join(clientThreads[i], NULL);
     }
+
     isEnd = 1;
     pthread_join(barberThread, NULL);
 

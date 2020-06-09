@@ -211,6 +211,11 @@ int main(int argc, char *argv[])
         fprintf(stderr,usage, argv[0]);
         exit(1);
     }
+    if(argc>10){
+        fprintf(stderr, "%s: too many command-line arguments\n",argv[0]);
+        fprintf(stderr,usage, argv[0]);
+        exit(1);
+    }
     srand(time(NULL));
 
     int liczbaKlientow =20; //liczba klientow ktorzy sie pojawia
