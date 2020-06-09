@@ -205,20 +205,30 @@ void *Fryzjer()
 
 int main(int argc, char *argv[])
 {
+    static char usage[] = "Usage: %s -k value -r value [-c value] [-f value] [-d]\n";
+    if(argc<5){
+        fprintf(stderr, "%s: too few command-line arguments\n",argv[0]);
+        fprintf(stderr,usage, argv[0]);
+        exit(1);
+    }
     srand(time(NULL));
 
     int liczbaKlientow =20; //liczba klientow ktorzy sie pojawia
-    int wybor = 0;
+    int wybor;
+    int kFlag=0;
+    int rFlag=0;
     while ((wybor = getopt(argc, argv, "k:r:c:f:d")) != -1 )
     {
         switch(wybor)
         {
         case 'k': //max liczba klientow pobrana jako argument
             liczbaKlientow=atoi(optarg);
+            kFlag = 1;
             break;
         case 'r': // liczba krzesel w poczekalni
             liczbaMiejsc=atoi(optarg);
             liczbaKrzesel=atoi(optarg);
+            rFlag = 1;
             break;
         case 'c': // co ile czasu maja pojawiac sie klienci w salonie
             czas_klienta=atoi(optarg);
@@ -230,6 +240,16 @@ int main(int argc, char *argv[])
             debug=true;
             break;
         }
+    }
+    if(kFlag == 0){
+        fprintf(stderr, "%s: missing -k option\n",argv[0]);
+        fprintf(stderr, usage,argv[0]);
+        exit(1);
+    }
+    if(rFlag == 0){
+        fprintf(stderr, "%s: missing -r option\n",argv[0]);
+        fprintf(stderr, usage,argv[0]);
+        exit(1);
     }
 
     pthread_t *klienci_watki = malloc(sizeof(pthread_t)*liczbaKlientow);

@@ -2,22 +2,13 @@
 #include <stdlib.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <getopt.h>
-//#include "../functions.h"
-#include <time.h>
-
-struct Node {
-    int id;
-    int time;
-    struct Node *next;
-};
+#include "../functions.h"
 
 sem_t clientsSem; // to jest liczba klientow gotowych do strzyzenia; 0 gdy nie ma nikogo w poczekalni
 sem_t barberSem; // to jest znacznik czy fryzjer jest zajetty czy nie; 0 gdy scina kogos, 1 gdy nie
 pthread_mutex_t barberSeat; // blokuje fotel gdy siada na niego klient a zwalnia go fryzjer gdy skonczy
 pthread_mutex_t waitingRoom; //blokuje poczekalnie tak aby zapobiedz wyscigowi sprawdzania ilosci osob w poczekalni
-
 
 int freeSeatsAmount = 10;
 int seatsAmount = 10;
@@ -27,13 +18,14 @@ int maxClientArriveTime = 8;
 int isDebug = 0;
 int isEnd = 0;
 
+// if minus value seat is empty
+int clientOnSeatId = -1;
+
 struct Node *clients = NULL;
 struct Node *rejectedClients = NULL;
 struct Node *waitingClients = NULL;
 
-// if minus value seat is empty
-int clientOnSeatId = -1;
-
+/*
 
 void *BarberThred();
 
@@ -61,7 +53,7 @@ void append(struct Node **head_ref, int clientId, int clientTime) {
     if (isDebug == 1)
         printf("Adding client id: %d time: %d\n", clientId, clientTime);
     struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
-    struct Node *last = *head_ref;  /*used in step 5*/
+    struct Node *last = *head_ref;  used in step 5
     new_node->id = clientId;
     new_node->time = clientId;
     new_node->next = NULL;
@@ -179,22 +171,33 @@ void *BarberThred() {
     return NULL;
 }
 
-
+*/
 
 int main(int argc, char *argv[]) {
     // inicjalizacja
+    static char usage[] = "Usage: %s -k value -r value [-c value] [-f value] [-d]\n";
+    if(argc<5){
+        fprintf(stderr, "%s: too few command-line arguments\n",argv[0]);
+        fprintf(stderr,usage, argv[0]);
+        exit(1);
+    }
+
     srand(time(NULL));
 
     int clientCount = 5;
     int option;
+    int kFlag=0;
+    int rFlag=0;
     while ((option = getopt(argc, argv, "k:r:c:f:d")) != -1) {
         switch (option) {
             case 'k': //max liczba klientow
                 clientCount = atoi(optarg);
+                kFlag = 1;
                 break;
             case 'r': // liczba krzesel w poczekalni
                 freeSeatsAmount = atoi(optarg);
                 seatsAmount = atoi(optarg);
+                rFlag = 1;
                 break;
             case 'c': // co ile czasu maja pojawiac sie klienci w salonie
                 maxClientArriveTime = atoi(optarg);
@@ -207,12 +210,22 @@ int main(int argc, char *argv[]) {
                 break;
         }
     }
+    if(kFlag == 0){
+        fprintf(stderr, "%s: missing -k option\n",argv[0]);
+        fprintf(stderr, usage,argv[0]);
+        exit(1);
+    }
+    if(rFlag == 0){
+        fprintf(stderr, "%s: missing -r option\n",argv[0]);
+        fprintf(stderr, usage,argv[0]);
+        exit(1);
+    }
 
     pthread_t *clientThreads = malloc(sizeof(pthread_t) * clientCount);
     pthread_t barberThread;
 
     int i;
-    if (isDebug == 1) printf("Liczba klientow: %d\n", clientCount);
+    if (isDebug == 1) printf("Number of Clients: %d\n", clientCount);
 
     for (i = 0; i < clientCount; i++) {
         // losujemy czas po jakim klient przyjdzie do salonu
@@ -227,8 +240,14 @@ int main(int argc, char *argv[]) {
     sem_init(&barberSem, 0, 0);
 
     // inicjalizacja zamka dla zamka fotel
-    if (pthread_mutex_init(&barberSeat, NULL) != 0) printf("Fotel mutex init error");
-    if (pthread_mutex_init(&waitingRoom, NULL) != 0) printf("Poczekalnia mutex init error");
+    if (pthread_mutex_init(&barberSeat, NULL) != 0) {
+        fprintf(stderr, "barebrSeat mutex init error");
+        exit(1);
+    }
+    if (pthread_mutex_init(&waitingRoom, NULL) != 0) {
+        fprintf(stderr, "barebrSeat mutex init error");
+        exit(1);
+    }
     // tworzymy wątek fryzjera. wskaźnik do wątku, parametry wątku, wskaźnik do funkcji wykonywanej przez wątek, argumenty do funkcji wykonywanej
     pthread_create(&barberThread, NULL, BarberThred, NULL);
 
