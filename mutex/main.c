@@ -14,10 +14,10 @@ pthread_mutex_t barberSeat;
 // Blokuje poczekalnie w celu likwidacji wyścigu
 pthread_mutex_t waitingRoom;
 
-// Liczba wolnych miejsc w poczekalni
-int freeSeatsAmount = 10;
 // Domyslna liczba miejsc w poczekalni
 int seatsAmount = 10;
+// Liczba wolnych miejsc w poczekalni
+int freeSeatsAmount = 10;
 // Liczba osób które zrezygnowały
 int rejectedClientsCounter = 0;
 // Domyślny maksymalny czas strzyżenia
@@ -27,9 +27,9 @@ int maxClientArriveTime = 8;
 // Informacja o wolnym fotelu (-1 wskazuje na pusty fotel)
 int clientOnSeatId = -1;
 
-// Zmiena wskazująca czy mają być wyświetlane rozszerzone komunikaty
+// Zmiena wskazująca czy mają być wyświetlane rozszerzone komunikaty (0 - wyłączone, 1 - włączone)
 int isDebug = 0;
-// Zmiena informująca o tym, że fryzjer ukończył strzyżenie
+// Zmiena informująca o tym, że fryzjer ukończył strzyżenie( 0 - nieukończone, 1 - ukończone)
 int isEnd = 0;
 
 // Inicjalizacja list - klientów, klientów którzy zrezygnowali, oczekujacych klientów
@@ -44,10 +44,11 @@ void *BarberThred() {
         // Blokada poczekalni
         pthread_mutex_lock(&waitingRoom);
         freeSeatsAmount++;
-        // Odblokowanie poczekalni
-        pthread_mutex_unlock(&waitingRoom);
         // Wysłanie sygnału
         sem_post(&barberSem);
+        // Odblokowanie poczekalni
+        pthread_mutex_unlock(&waitingRoom);
+
 
         doBarberWork();
 
@@ -67,7 +68,7 @@ void *ClientThread(void *client) {
 
     travelToBarbershop(clientTime);
 
-    // Blokada poczekalni
+    // Blokada poczekalni z racji na przybycie nowego klienta i zmiane stanu wolnych miejsc w poczekalni
     pthread_mutex_lock(&waitingRoom);
     // Dodanie klienta do listy oczekujących w poczekalni, jeżeli w tej znajdują się wolne miejsca
     if (freeSeatsAmount > 0) {
@@ -80,7 +81,7 @@ void *ClientThread(void *client) {
 
         // Zasygnalizowanie, że klient znajduje się w poczekalni
         sem_post(&clientsSem);
-        // Odblokowanie poczekalni
+        // Odblokowanie poczekalni, z racji na to że klient został już dodany do oczekujących
         pthread_mutex_unlock(&waitingRoom);
         // Oczekiwanie na gotowość fryzjera - zacznie pracę lub skończy ścinać inną osobę
         sem_wait(&barberSem);
@@ -171,10 +172,9 @@ int main(int argc, char *argv[]) {
     pthread_t *clientThreads = malloc(sizeof(pthread_t) * clientCount);
     pthread_t barberThread;
 
-    int i;
     if (isDebug == 1) printf("Number of Clients: %d\n", clientCount);
 
-    for (i = 0; i < clientCount; i++) {
+    for (int i = 0; i < clientCount; i++) {
         // Wylosowanie czasu, po jakim klient pojawi się u fryzjera
         int randomTime = rand() % maxClientArriveTime + 1;
         // Dodanie klienta do listy klientów
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
     pthread_create(&barberThread, NULL, BarberThred, NULL);
 
     // Dodanie wątków klientów do listy oczekujących
-    for (i = 0; i < clientCount; i++) {
+    for (int i = 0; i < clientCount; i++) {
         pthread_join(clientThreads[i], NULL);
     }
 
