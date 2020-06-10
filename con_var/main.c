@@ -61,7 +61,7 @@ void *ClientThread(void *client) {
         freeSeatsAmount--;
         if (isDebug == 1)
             addToWaitingList(clientId, clientTime);
-        printf("Res:%d WRomm: %d/%d [in: %d]  - New client in waiting room!", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d]  - New client in waiting room!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
 
         // Odblokowanie poczekalni, z racji na to że klient został już dodany do oczekujących
@@ -81,9 +81,9 @@ void *ClientThread(void *client) {
         // Blokada poczekalni z racji na przejście klienta do fryzjera i zmiane stanu wolnych miejsc w poczekalni
         pthread_mutex_lock(&waitingRoom);
         freeSeatsAmount++;
+        clientOnSeatId = clientId;
         printf("Res:%d WRomm: %d/%d [in: %d] - Client sat on the barber's chair!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
-        clientOnSeatId = clientId;
         if (isDebug == 1)
             deleteNode(&waitingClients, clientId);
         printf("Res:%d WRomm: %d/%d [in: %d] - The client's hair was cut!\n", rejectedClientsCounter,
@@ -99,9 +99,8 @@ void *ClientThread(void *client) {
         pthread_mutex_lock(&clientFinished);
         // Oczekiwanie na Ukończenie ścinania
         pthread_cond_wait(&shearEndCond, &clientFinished);
-        isEnd = 0; //resetowanie zeby nastepny mogl przyjsc
         // Zmaiana statusu w celu wpuszczenia kolejnych osób na fotel
-        isEnd = false;
+        isEnd = 0;
         // Odblokowanie osoby ścinanej
         pthread_mutex_unlock(&clientFinished);
 
@@ -140,7 +139,6 @@ void *BarberThread() {
         // Realizowane póki w są klienci
         if (isEnd == 0)
         {
-
             doBarberWork();
             printf("Res:%d WRomm: %d/%d [in: %d] - Client has new haircut!\n", rejectedClientsCounter,
                    seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
