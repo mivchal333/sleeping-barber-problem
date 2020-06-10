@@ -27,6 +27,9 @@ pthread_mutex_t barberMutex;
 int seatsAmount = 10;
 // Liczba wolnych miejsc w poczekalni
 int freeSeatsAmount = 10;
+
+//Domyslna liczba miejsc w poczekalni
+int seatsAmount = 10;
 //Liczba osób które zrezygnowały
 int rejectedClientsCounter = 0;
 //Domyślny maksymalny czas strzyżenia
@@ -99,6 +102,7 @@ void *ClientThread(void *client) {
         pthread_mutex_lock(&clientFinished);
         // Oczekiwanie na Ukończenie ścinania
         pthread_cond_wait(&shearEndCond, &clientFinished);
+        isEnd = 0; //resetowanie zeby nastepny mogl przyjsc
         // Zmaiana statusu w celu wpuszczenia kolejnych osób na fotel
         isEnd = false;
         // Odblokowanie osoby ścinanej
@@ -127,6 +131,8 @@ void *ClientThread(void *client) {
 }
 
 void *BarberThread() {
+    pthread_mutex_lock(&barberMutex); //lock na stanie fryzjera zeby zapewnic bezpieczenstwo
+    while (isEnd == 0) //dopoki sa klienci
     // Blokada fryzjera gdy ten pracuje
     pthread_mutex_lock(&barberMutex);
     // Realizowane póki w są klienci
@@ -136,6 +142,7 @@ void *BarberThread() {
         pthread_cond_wait(&wakeupBarberCond, &barberMutex);
         // Odblokowanie fryzjera gdy ten ukończył strzyżenie
         pthread_mutex_unlock(&barberMutex);
+        if (isEnd == 0) // //jesli jest klient
         // Realizowane póki w są klienci
         if (!isEnd)
         {
@@ -169,15 +176,16 @@ int main(int argc, char *argv[]) {
     }
     srand(time(NULL));
 
+    int clientCount = 20; //liczba klientow ktorzy sie pojawia
+    int choice;
     // Domyślna liczna klientów
     int clientCount = 5;
     int wybor;
     int kFlag = 0;
     int rFlag = 0;
-    while ((wybor = getopt(argc, argv, "k:r:c:f:d")) != -1) {
-        switch (wybor) {
-            // Liczba Klientów
-            case 'k':
+    while ((choice = getopt(argc, argv, "k:r:c:f:d")) != -1) {
+        switch (choice) {
+            case 'k': //max liczba klientow pobrana jako argument
                 clientCount = atoi(optarg);
                 kFlag = 1;
                 break;
