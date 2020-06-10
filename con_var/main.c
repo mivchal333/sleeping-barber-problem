@@ -7,12 +7,12 @@
 #include "../functions.h"
 
 pthread_cond_t freeSeatsCond; //miejsca dostepne w poczekalni
-pthread_cond_t isBarberAvailableCond; //fryzjer nie scina w danym momencie wlosow
-pthread_cond_t wakeupBarberCond; //wysylany zeby obudzic fryzjera
 pthread_cond_t shearEndCond; //mowi klientowi
+pthread_cond_t wakeupBarberCond; //wysylany zeby obudzic fryzjera
+pthread_cond_t isBarberAvailableCond; //fryzjer nie scina w danym momencie wlosow
 
-pthread_mutex_t barberSeatMutex; //fotel u fryzjera
 pthread_mutex_t waitingRoom; //mutex do ochrony miejsc w poczekalni
+pthread_mutex_t barberSeatMutex; //fotel u fryzjera
 pthread_mutex_t clientFinished; //klient po zakonczeniu scinania
 pthread_mutex_t barberMutex; //chroni stan pracy/spania fryzjera
 //Liczba wolnych miejsc w poczekalni
@@ -87,6 +87,7 @@ void *ClientThread(void *client) {
         pthread_mutex_lock(&barberSeatMutex);
         isSeatBusy = 0;
         pthread_mutex_unlock(&barberSeatMutex);
+
         pthread_cond_signal(&isBarberAvailableCond);
 
     } else {
@@ -102,12 +103,12 @@ void *ClientThread(void *client) {
 
 void *BarberThread() {
     pthread_mutex_lock(&barberMutex); //lock na stanie fryzjera zeby zapewnic bezpieczenstwo
-    while (!isEnd) //dopoki sa klienci
+    while (isEnd == 0) //dopoki sa klienci
     {
         //czekaj az fryzjer zostanie wybudzony
         pthread_cond_wait(&wakeupBarberCond, &barberMutex);
         pthread_mutex_unlock(&barberMutex);
-        if (!isEnd) // //jesli jest klient
+        if (isEnd == 0) // //jesli jest klient
         {
             doBarberWork();  // scinamy klienta
             printf("Res:%d WRomm: %d/%d [in: %d] - It has new haircut!\n", rejectedClientsCounter,
@@ -135,11 +136,11 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     int clientCount = 20; //liczba klientow ktorzy sie pojawia
-    int wybor;
+    int choice;
     int kFlag = 0;
     int rFlag = 0;
-    while ((wybor = getopt(argc, argv, "k:r:c:f:d")) != -1) {
-        switch (wybor) {
+    while ((choice = getopt(argc, argv, "k:r:c:f:d")) != -1) {
+        switch (choice) {
             case 'k': //max liczba klientow pobrana jako argument
                 clientCount = atoi(optarg);
                 kFlag = 1;
