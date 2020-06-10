@@ -80,7 +80,7 @@ void *ClientThread(void *client) {
         //czekaj az scinanie sie skonczy
         pthread_mutex_lock(&clientFinished);
         pthread_cond_wait(&shearEndCond, &clientFinished);
-        isEnd = false; //resetowanie zeby nastepny mogl przyjsc
+        isEnd = 0; //resetowanie zeby nastepny mogl przyjsc
         pthread_mutex_unlock(&clientFinished);
 
         //odblokowanie fotelu i danie znac ze fryzjer jest wolny
