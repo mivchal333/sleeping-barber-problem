@@ -52,7 +52,7 @@ void *BarberThred() {
 
         doBarberWork();
 
-        printf("Res:%d WRomm: %d/%d [in: %d] - It has new haircut!\n", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d] - Client has new haircut!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
         // Odblokowanie fotela przez klienta
         pthread_mutex_unlock(&barberSeat);
@@ -76,7 +76,7 @@ void *ClientThread(void *client) {
         if (isDebug == 1)
             addToWaitingList(clientId, clientTime);
 
-        printf("Res:%d WRomm: %d/%d [in: %d] - Client sat in the waiting room!\n", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d] - New client in waiting room!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
 
         // Zasygnalizowanie, że klient znajduje się w poczekalni
@@ -88,7 +88,7 @@ void *ClientThread(void *client) {
         // Blokada fotela, rozpoczęcie strzyżenia
         pthread_mutex_lock(&barberSeat);
         clientOnSeatId = clientId;
-        printf("Res:%d WRomm: %d/%d [in: %d] - Barber starts cutting its hair!\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
+        printf("Res:%d WRomm: %d/%d [in: %d] - The client's hair was cut!\n", rejectedClientsCounter, seatsAmount - freeSeatsAmount,
                seatsAmount, clientOnSeatId);
         // Usunięcie klienta z miejsca w poczekalni
         if (isDebug == 1)

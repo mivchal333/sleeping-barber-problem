@@ -6,17 +6,17 @@
 #include <getopt.h>
 #include "../functions.h"
 
-// Zmienna warunkowa wskazujuąca na dostępność fryzjea
-pthread_cond_t isBarberAvailableCond;
-// Zmienna warunkowa informująca o wybudzeniu fryzjera
-pthread_cond_t wakeupBarberCond;
 // Zmienna warunkowa informująca o ukończeniu ścinania
 pthread_cond_t shearEndCond;
+// Zmienna warunkowa informująca o wybudzeniu fryzjera
+pthread_cond_t wakeupBarberCond;
+// Zmienna warunkowa wskazujuąca na dostępność fryzjea
+pthread_cond_t isBarberAvailableCond;
 
-// Blokuje fotel barbera w momencie gdy fryzjez zaczyna ścinać i zwalnia gdy klient zostanie obcięty
-pthread_mutex_t barberSeatMutex;
 // Blokuje poczekalnię w momencie gdy dokonywane są w niej zmiany i zwalnia gdy te zostaną ukończone
 pthread_mutex_t waitingRoom;
+// Blokuje fotel barbera w momencie gdy fryzjez zaczyna ścinać i zwalnia gdy klient zostanie obcięty
+pthread_mutex_t barberSeatMutex;
 // Blokuje klienta w momencie gdy ten jest strzyżony i zwalnia gdy te strzyżenie zostanie ukończone
 pthread_mutex_t clientFinished;
 // Blokuje fryzjera gdy ten wykonuje swoją pracę i odblokowuje gdy już okończy strzyc
@@ -27,9 +27,6 @@ pthread_mutex_t barberMutex;
 int seatsAmount = 10;
 // Liczba wolnych miejsc w poczekalni
 int freeSeatsAmount = 10;
-
-//Domyslna liczba miejsc w poczekalni
-int seatsAmount = 10;
 //Liczba osób które zrezygnowały
 int rejectedClientsCounter = 0;
 //Domyślny maksymalny czas strzyżenia
@@ -64,7 +61,7 @@ void *ClientThread(void *client) {
         freeSeatsAmount--;
         if (isDebug == 1)
             addToWaitingList(clientId, clientTime);
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  nowy klient w poczekalni\n", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d]  - New client in waiting room!", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
 
         // Odblokowanie poczekalni, z racji na to że klient został już dodany do oczekujących
@@ -84,12 +81,12 @@ void *ClientThread(void *client) {
         // Blokada poczekalni z racji na przejście klienta do fryzjera i zmiane stanu wolnych miejsc w poczekalni
         pthread_mutex_lock(&waitingRoom);
         freeSeatsAmount++;
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient poszedl do fryzjera\n", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d] - Client sat on the barber's chair!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
         clientOnSeatId = clientId;
         if (isDebug == 1)
             deleteNode(&waitingClients, clientId);
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient jest scinany\n", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d] - The client's hair was cut!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
         // Odblokowanie poczekalni, z racji na to że klient rozpoczął ścinanie
         pthread_mutex_unlock(&waitingRoom);
@@ -124,31 +121,28 @@ void *ClientThread(void *client) {
         rejectedClientsCounter++;
         if (isDebug == 1)
             addToRejectedList(clientId, clientTime);
-        printf("Res:%d WRomm: %d/%d [in: %d]  -  klient nie wszedl\n", rejectedClientsCounter,
+        printf("Res:%d WRomm: %d/%d [in: %d] - Client rejected!\n", rejectedClientsCounter,
                seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
     }
     return NULL;
 }
 
 void *BarberThread() {
-    pthread_mutex_lock(&barberMutex); //lock na stanie fryzjera zeby zapewnic bezpieczenstwo
-    while (isEnd == 0) //dopoki sa klienci
     // Blokada fryzjera gdy ten pracuje
     pthread_mutex_lock(&barberMutex);
     // Realizowane póki w są klienci
-    while (!isEnd)
+    while (isEnd == 0)
     {
         // Oczekiwanie na wybudzenie fryzjera
         pthread_cond_wait(&wakeupBarberCond, &barberMutex);
         // Odblokowanie fryzjera gdy ten ukończył strzyżenie
         pthread_mutex_unlock(&barberMutex);
-        if (isEnd == 0) // //jesli jest klient
         // Realizowane póki w są klienci
-        if (!isEnd)
+        if (isEnd == 0)
         {
 
             doBarberWork();
-            printf("Res:%d WRomm: %d/%d [in: %d] - It has new haircut!\n", rejectedClientsCounter,
+            printf("Res:%d WRomm: %d/%d [in: %d] - Client has new haircut!\n", rejectedClientsCounter,
                    seatsAmount - freeSeatsAmount, seatsAmount, clientOnSeatId);
             // Zasygnalizowanie ukończenia strzyżenia
             pthread_cond_signal(&shearEndCond);
@@ -176,11 +170,9 @@ int main(int argc, char *argv[]) {
     }
     srand(time(NULL));
 
-    int clientCount = 20; //liczba klientow ktorzy sie pojawia
-    int choice;
     // Domyślna liczna klientów
     int clientCount = 5;
-    int wybor;
+    int choice;
     int kFlag = 0;
     int rFlag = 0;
     while ((choice = getopt(argc, argv, "k:r:c:f:d")) != -1) {
