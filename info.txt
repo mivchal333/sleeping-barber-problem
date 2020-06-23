@@ -1,6 +1,4 @@
-Uruchomienie wersji fryzjer_sem (będąc w folderze mutex_semafor):
 
-gcc -pthread  main.c ../functions.c
 make
 
 ./con_var -k value -r value [-c value] [-f value] [-d]
